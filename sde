@@ -1,0 +1,103 @@
+; Initialize editor
+(sde:clear)
+
+; New replaces old
+(sdegeo:set-default-boolean "ABA")
+
+;Creat Wafer area
+(sdegeo:create-rectangle (position 0.0 0.0 0.0) (position 20.0 10.0 0.0) "Silicon" "Wafer")
+
+;------------------------electrode-------------------------------------------------------------------
+
+; Add-vertex
+(sdegeo:insert-vertex (position 2.0 0.0 0.0))
+(sdegeo:insert-vertex (position 4.0 0.0 0.0))
+(sdegeo:insert-vertex (position 11.0 0.0 0.0))
+(sdegeo:insert-vertex (position 14.0 0.0 0.0))
+
+(sdegeo:define-contact-set "source" 4.0 (color:rgb 1.0 0.0 0.0) "##")
+(sdegeo:set-current-contact-set "source")
+(sdegeo:define-2d-contact (find-edge-id (position 3.0 0 0))
+(sdegeo:get-current-contact-set))
+
+(sdegeo:define-contact-set "drain" 4.0 (color:rgb 0.0 1.0 0.0) "##")
+(sdegeo:set-current-contact-set "drain")
+(sdegeo:define-2d-contact (find-edge-id (position 12.5 0 0))
+(sdegeo:get-current-contact-set))
+
+;------------------------dope---------------------------------------------------------------------------
+
+; Region-wise doping
+(sdedr:define-constant-profile "Const.ndope" "ArsenicActiveConcentration" 1e+14)
+(sdedr:define-constant-profile-region "PlaceCD.ndope" "Const.ndope" "Wafer")
+
+; Define Gaussian doping
+(sdedr:define-refinement-window "BaseLine.pwell" "Line"
+(position 10.5 0.0 0.0) (position 14.5 0.0 0.0))
+(sdedr:define-gaussian-profile "Gauss.pwell" "BoronActiveConcentration"
+"PeakPos" 0.0 "PeakVal" 1e16 "ValueAtDepth" 1e17 "Depth" 6.0 "Gauss" "Factor" 0.7)
+(sdedr:define-analytical-profile-placement "PlaceAP.pwell"
+"Gauss.pwell" "BaseLine.pwell" "Positive" "NoReplace" "Eval")
+
+(sdedr:define-refinement-window "BaseLine.nplus" "Line"
+(position 2.0 0.0 0.0) (position 4.0 0.0 0.0))
+(sdedr:define-gaussian-profile "Gauss.nplus" "ArsenicActiveConcentration"
+"PeakPos" 0.0 "PeakVal" 1e19 "ValueAtDepth" 1e14 "Depth" 2.0 "Gauss" "Factor" 0.7)
+(sdedr:define-analytical-profile-placement "PlaceAP.nplus"
+"Gauss.nplus" "BaseLine.nplus" "Positive" "NoReplace" "Eval")
+
+(sdedr:define-refinement-window "BaseLine.pplus" "Line"
+(position 11.0 0.0 0.0) (position 14.0 0.0 0.0))
+(sdedr:define-gaussian-profile "Gauss.pplus" "BoronActiveConcentration"
+"PeakPos" 0.0 "PeakVal" 1e19 "ValueAtDepth" 1e17 "Depth" 1.0 "Gauss" "Factor" 0.7)
+(sdedr:define-analytical-profile-placement "PlaceAP.pplus"
+"Gauss.pplus" "BaseLine.pplus" "Positive" "NoReplace" "Eval")
+
+; -------------------------mesh---------------------------------------------------------------------
+
+; Region-wise mesh (n-dope)
+(sdedr:define-refinement-size "RefDef.ndope" 0.7 0.7 0.01 0.01)
+(sdedr:define-refinement-region "PlaceRF.ndope" "RefDef.ndope" "Wafer")
+(sdedr:define-refinement-function "RefDef.ndope"
+"DopingConcentration" "MaxTransDiff" 1)
+
+; Refined mesh for a fake-region (p-well)
+;(sdedr:define-refinement-window "RefWin.pwell" "Rectangle"
+;(position 10.3 0.0 0.0) (position 14.7 6.0 0.0))
+;(sdedr:define-refinement-size "RefDef.pwell" 0.25 0.1 0.025 0.01)
+;(sdedr:define-refinement-placement "PlaceRF.pwell" "RefDef.pwell" "RefWin.pwell")
+; Mesh refinement function 
+;(sdedr:define-refinement-function "RefDef.pwell"
+;"DopingConcentration" "MaxTransDiff" 1)
+;(sdedr:define-refinement-function "RefDef.pwell"
+;"MaxLenInt" "RefWin.pwell" "Wafer" 0.0002 1.5
+;"DoubleSide" "UseRegionNames")
+
+; Refined mesh for a fake-region (n-plus)
+(sdedr:define-refinement-window "RefWin.nplus" "Rectangle"
+(position 0.6 0.0 0.0) (position 5.4 2.0 0.0))
+(sdedr:define-refinement-size "RefDef.nplus" 0.25 0.1 0.0025 0.001)
+(sdedr:define-refinement-placement "PlaceRF.nplus" "RefDef.nplus" "RefWin.nplus")
+; Mesh refinement function 
+(sdedr:define-refinement-function "RefDef.nplus"
+"DopingConcentration" "MaxTransDiff" 1)
+(sdedr:define-refinement-function "RefDef.nplus"
+"MaxLenInt" "RefWin.nplus" "Wafer" 0.0002 1.5
+"DoubleSide" "UseRegionNames")
+
+; Refined mesh for a fake-region (p-plus)
+(sdedr:define-refinement-window "RefWin.pplus" "Rectangle"
+(position 10.3 0.0 0.0) (position 14.7 1.0 0.0))
+(sdedr:define-refinement-size "RefDef.pplus" 0.25 0.1 0.0025 0.001)
+(sdedr:define-refinement-placement "PlaceRF.pplus" "RefDef.pplus" "RefWin.pplus")
+; Mesh refinement function 
+(sdedr:define-refinement-function "RefDef.pplus"
+"DopingConcentration" "MaxTransDiff" 1)
+(sdedr:define-refinement-function "RefDef.pplus"
+"MaxLenInt" "RefWin.pplus" "RefWin.pwell" 0.0002 1.5
+"DoubleSide" "UseRegionNames")
+
+; Generating mesh
+(sde:build-mesh "snmesh" "-a" "n@node@_msh")
+; Save model
+(sde:save-model "n@node@_geo")
